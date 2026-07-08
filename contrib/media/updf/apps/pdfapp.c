@@ -110,7 +110,7 @@ static void downsample_box(fz_pixmap *dst, fz_pixmap *src, int f)
 						sum += srow[sx * src->n + k];
 					}
 				}
-				drow[x * n + k] = (unsigned char)(sum / area);
+				drow[x * n + k] = (unsigned char)((sum + area / 2) / area);
 			}
 		}
 	}
@@ -168,6 +168,13 @@ static fz_pixmap *render_bgra_white(pdfapp_t *app, fz_page *page, fz_matrix ctm)
 	fz_catch(ctx)
 	{
 		fz_drop_pixmap(ctx, dst);
+		if (ss > 1)
+		{
+			/* usually out of memory - the supersampled buffer is ss^2
+			   times the 1x size; retry plain and stop supersampling */
+			app->ss_factor = 1;
+			return render_bgra_white(app, page, ctm);
+		}
 		fz_rethrow(ctx);
 	}
 	return dst;

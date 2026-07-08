@@ -138,6 +138,7 @@ int ClientToPagePoint(int mx, int my, fz_point *pt);
 void CopySelectionToClipboard(void);
 void ProcessPageMouse(void);
 void FitPageWidth(void);
+unsigned CpuBaseMhz(void);
 
 
 // The MuPDF 1.19 glue (pdfapp.c) only calls back into winrepaint().
@@ -743,6 +744,12 @@ void HandleNewZoom(unsigned char key)
 		new_zoom /= 10;
 	if (key == ASCII_KEY_ENTER)
 	{
+		if (new_zoom == 0)           // nothing typed: cancel, like Esc
+		{
+			key_mode_enter_zoom = 0;
+			DrawMainWindow();
+			return;
+		}
 		ApplyNewZoom();
 		return;
 	}
@@ -772,8 +779,11 @@ void ApplyNewZoom(void)
 	do_not_blit = 1;
 	pdfapp_showpage(&gapp, 0, 1, 0);           // re-render at the new zoom
 	do_not_blit = 0;
-	gapp.pany = (int)((long long)gapp.pany * gapp.image->h / oldh);
-	NormalizeScrollPos();
+	if (gapp.image)
+	{
+		gapp.pany = (int)((long long)gapp.pany * gapp.image->h / oldh);
+		NormalizeScrollPos();
+	}
 	DrawMainWindow();
 }
 
@@ -924,6 +934,24 @@ void PageRotateRight(void)
 	winblit(&gapp);
 }
 
+// CPU base frequency in MHz. sysfn 18.5 returns the clock modulo 2^32 and
+// so misreads CPUs faster than ~4.29 GHz as slow ones. CPUID leaf 16h
+// (Intel Skylake+, i.e. exactly the CPUs that can exceed 4.29 GHz) reports
+// the base frequency in MHz directly, so prefer it; CPUs old enough to
+// lack the leaf cannot wrap 18.5 anyway.
+unsigned CpuBaseMhz(void)
+{
+	unsigned a, b, c, d;
+	asm volatile ("cpuid" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(0));
+	if (a >= 0x16)
+	{
+		asm volatile ("cpuid" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(0x16), "c"(0));
+		if (a)
+			return a;
+	}
+	return kol_system_cpufreq() / 1000000;
+}
+
 int main (int argc, char* argv[])
 {
 	char ii, mouse_wheels_state;
@@ -953,10 +981,10 @@ int main (int argc, char* argv[])
 
 	// Supersampling (2x render for sharper text) is ~4x the work per page.
 	// On a slow CPU (< 1 GHz: PI/PII/PIII era) it would crawl, so switch it
-	// off automatically. fn 18.5 returns the CPU clock in Hz; a 0/bogus
-	// reading leaves the default on (assume a capable machine).
+	// off automatically. A 0/bogus reading leaves the default on (assume a
+	// capable machine).
 	{
-		unsigned mhz = kol_system_cpufreq() / 1000000;
+		unsigned mhz = CpuBaseMhz();
 		char msg[64];
 		if (mhz > 0 && mhz < 1000)
 			gapp.ss_factor = 1;
