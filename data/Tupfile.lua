@@ -682,6 +682,7 @@ tup.append_table(img_files, {
  {"EASYSHOT", VAR_PROGS .. "/cmm/misc/easyshot.com"},
  {"MOUSECFG", VAR_PROGS .. "/cmm/mousecfg/mousecfg.com"},
  {"BARSCFG", VAR_PROGS .. "/cmm/barscfg/barscfg.com"},
+ {"BBENCH", VAR_PROGS .. "/cmm/bbench/bbench.com"},
  {"SEARCH", VAR_PROGS .. "/cmm/misc/search.com"},
  {"SYSPANEL", VAR_PROGS .. "/cmm/misc/software_widget.com"},
  {"SYSMON", VAR_PROGS .. "/cmm/sysmon/sysmon.com"},
