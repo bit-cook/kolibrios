@@ -39,6 +39,7 @@ struct proc_info Form;
 #define SC_G          0x22
 #define SC_L          0x26
 #define SC_W          0x11  // fit page to width
+#define SC_S          0x1F  // toggle supersampling (sharper text)
 #define SC_NUM_MINUS  0x4A  // keypad -
 #define SC_NUM_PLUS   0x4E  // keypad +
 #define SC_HOME       0x47
@@ -97,6 +98,7 @@ const char *help[] = {
 	"w                 - fit page to width",
 	"[ or l  /  ] or r - rotate page left / right",
 	"g                 - grayscale on / off",
+	"s                 - supersampling (sharper text) on / off",
 	" ",
 	"Mouse:",
 	"Left drag         - select text (copies to clipboard)",
@@ -138,6 +140,7 @@ int ClientToPagePoint(int mx, int my, fz_point *pt);
 void CopySelectionToClipboard(void);
 void ProcessPageMouse(void);
 void FitPageWidth(void);
+void ToggleSupersampling(void);
 unsigned CpuBaseMhz(void);
 
 
@@ -886,6 +889,28 @@ void FitPageWidth(void)
 	pdfapp_showpage(&gapp, 0, 1, 0); /* re-render current page, no repaint */
 }
 
+// toggle 2x supersampling (sharper text) on/off at runtime; re-renders
+// the current page and drops the cache (neighbours were at the old factor)
+void ToggleSupersampling(void)
+{
+	char msg[96];
+	long px;
+	gapp.ss_factor = (gapp.ss_factor > 1) ? 1 : 2;
+	FlushPageCache();
+	do_not_blit = 1;
+	pdfapp_showpage(&gapp, 0, 1, 0);
+	do_not_blit = 0;
+	NormalizeScrollPos();
+	winblit(&gapp);
+	// diagnostic: gapp.image is the 1x display pixmap; if its area >= the SS
+	// guard (2.5M px) supersampling is skipped even when ss_factor==2
+	px = (long)gapp.image->w * gapp.image->h;
+	sprintf(msg, "uPDF: SS ss_factor=%d, page %dx%d=%ld px %s\n",
+		gapp.ss_factor, gapp.image->w, gapp.image->h, px,
+		(gapp.ss_factor > 1 && px < 2500000) ? "-> SS ACTIVE" : "-> SS skipped");
+	kol_board_puts(msg);
+}
+
 void PageZoomIn(void)
 {
 	int oldh = gapp.image->h;
@@ -1053,6 +1078,7 @@ int main (int argc, char* argv[])
 					case SC_END:    pdfapp_onkey(&gapp, 'G'); break; // last page
 					case SC_G:      pdfapp_onkey(&gapp, 'c'); break; // grayscale on/off
 					case SC_W:      FitPageWidth(); NormalizeScrollPos(); winblit(&gapp); break; // fit width
+					case SC_S:      ToggleSupersampling(); break; // sharper text on/off
 					case SC_L:
 					case SC_LBRACKET: PageRotateLeft(); break;
 					case SC_R:
