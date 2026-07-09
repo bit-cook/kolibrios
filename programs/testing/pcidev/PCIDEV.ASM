@@ -56,6 +56,7 @@ load_libraries l_libs_start,end_l_libs
 	mcall	SF_SYS_MISC,SSF_MEM_ALLOC,4096*4 ; 16 Kb - I hope this will be enough for store of data
 	mov	[store_text_area_start],eax
 ;-----------------------------------------------------------------------------
+	call	calc_window_height	; fit window height to the number of devices
 	call draw_window
 align 4
 still:
@@ -374,6 +375,23 @@ nextDev:
 	jbe	Start_Enum		; if not jump to keep searching
 	ret
 ;-----------------------------------------------------------------------------
+;* Count PCI devices (silent enumeration) and set the window height to fit:
+;  device rows start at client-y = 110 and each row is 10 pixels tall.
+calc_window_height:
+	mov	byte [total], 0
+	mov	byte [silent], 1	; Print_New_Device only counts, no drawing
+	call	Get_PCI_Info
+	mov	byte [silent], 0
+	movzx	eax, byte [total]	; number of devices
+	imul	eax, 10 		; each row is 10 pixels
+	add	eax, 110 + 30		; header area + bottom margin (~3 lines)
+	push	eax
+	mcall	48, 4			; get skin height into eax
+	pop	ecx
+	add	eax, ecx		; content is drawn below the title bar
+	mov	[Form + 4], ax		; store the fitted window height
+	ret
+;-----------------------------------------------------------------------------
 no_ummio_allowed:
 	xor 	al,al
 	mov 	[MMIO_allowed],al		; re-enter the subroutine
@@ -381,6 +399,10 @@ no_ummio_allowed:
 ;* Print device info to screen
 
 Print_New_Device:
+	cmp	byte [silent], 0	; counting pass for calc_window_height?
+	je	@f
+	ret				; yes: device already counted, skip drawing
+@@:
 	xor 	esi, esi	    	; default text color
 	mov 	cl, [MMIO_allowed]
 	or	cl,cl
@@ -885,6 +907,7 @@ MMIO_Bus	db 255
 MMIO_Dev	db 255
 MMIO_BAR	db 0
 MMIO_allowed	db 1
+silent		db 0
 MMIO_Map	rd 8
 
 gr_pos		dd ?
