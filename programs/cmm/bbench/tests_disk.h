@@ -162,6 +162,9 @@ dword t_disk_read()
 	dword c=0, r;
 	if (!buf_disk) buf_disk = buf_a;
 	DiskPath();
+	// Seq Write may be unticked - create the test file if it is missing
+	r = FileRead(#dk_file, buf_disk, RND_BLK);
+	if (r!=0) && (r!=6) FileWrite(#dk_file, buf_disk, DISK_CHUNK);
 	BenchBegin();
 	do {
 		r = FileRead(#dk_file, buf_disk, DISK_CHUNK);

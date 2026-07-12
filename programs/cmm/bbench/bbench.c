@@ -97,7 +97,7 @@ void TryDisk(dword dir) { if (DiskWritable(dir)) AddDisk(dir); }
 void ScanDisks()                  // enumerate real mounts under "/", keep writable
 {
 	int i;
-	dword nm;
+	dword nm, l;
 	char base[48];
 	byte c0, c1, skip;
 	disk_count = 0;
@@ -106,6 +106,8 @@ void ScanDisks()                  // enumerate real mounts under "/", keep writa
 		nm = io.dir.position(i);
 		c0 = DSBYTE[nm];  c1 = DSBYTE[nm+1];
 		skip = 0;
+		l = strlen(nm);
+		if (l > 12) skip = 1;                 // path slots are fixed 24 bytes
 		if (c0=='c') && (c1=='d') skip = 1;   // CD (read-only)
 		if (c0=='f') && (c1=='d') skip = 1;   // floppy
 		if (c0=='r') && (c1=='d') skip = 1;   // ramdisk /rd (system)
@@ -127,6 +129,12 @@ void ScanDisks()                  // enumerate real mounts under "/", keep writa
 }
 
 //---------------- helpers ----------------//
+void bench_exit()      // single exit point: never leave bbtst.tmp behind
+{
+	Disk_Cleanup();
+	ExitProcess();
+}
+
 void FlatButton(dword x, id, bg, tc, label)
 {
 	DefineButton(x, BUTTON_Y, BUTTON_W, BUTTON_H - 1, id, bg);
@@ -440,7 +448,7 @@ byte AbortRequested()
 		if (!ev) break;
 		if (ev==evButton) {
 			id = GetButtonID();
-			if (id==1) ExitProcess();          // window X pressed mid-run
+			if (id==1) bench_exit();           // window X pressed mid-run
 		}
 		if (ev==evKey) {
 			GetKeys();
@@ -493,7 +501,7 @@ void RunSelected()
 //---------------- events ----------------//
 void HandleButton(dword id)
 {
-	if (id==1) ExitProcess();
+	if (id==1) bench_exit();
 	if (id==BTN_DISK_DROP) {           // open the LMENU popup below the combobox
 		open_lmenu(disk_drop_x, disk_drop_y+DISK_BH+1, MENU_TOP_LEFT, disk_sel+1, #disk_menu);
 		disk_menu_open = 1;
@@ -532,7 +540,7 @@ void main()
 			break;
 		case evKey:
 			GetKeys();
-			if (key_scancode==SCAN_CODE_ESC) ExitProcess();
+			if (key_scancode==SCAN_CODE_ESC) bench_exit();
 			if (key_scancode==SCAN_CODE_ENTER) RunSelected();
 			break;
 		case evReDraw:
