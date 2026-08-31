@@ -48,11 +48,9 @@
         owner: "{{ storage_user }}"
         group: "{{ storage_user }}"
 
-    # emulators hardcode <site root>/<lang>/data/data/kolibri.img; storage_path is the ci folder (no trailing slash), its dirname is the site root
+    # emulators hardcode <site root>/<lang>/data/data/kolibri.img; storage_path is the ci folder, one level under the site root
     - name: Sending bare images to stable emulator paths
       ansible.builtin.copy:
         src: "{{ stable_artifact_path }}/"
-        dest: "{{ storage_path | dirname }}/"
-        owner: "{{ storage_user }}"
-        group: "{{ storage_user }}"
+        dest: "{{ storage_path }}/../"
         mode: preserve
